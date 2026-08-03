@@ -1,0 +1,143 @@
+{
+  "status": "complete",
+  "source_inventory": {
+    "records": 44800,
+    "scenarios": 160,
+    "configurations": 28,
+    "checkpoints": [
+      250000,
+      500000,
+      750000,
+      1000000,
+      1250000,
+      1500000,
+      1750000,
+      2000000,
+      2250000,
+      2500000,
+      2750000,
+      3000000,
+      3250000,
+      3500000,
+      3750000,
+      4000000,
+      4250000,
+      4500000,
+      4750000,
+      5000000
+    ]
+  },
+  "selected_configurations": {
+    "gwas__mcmc_is_no_oracle": [
+      "gwas",
+      "mcmc_is_no_oracle",
+      0.05,
+      "0.4"
+    ],
+    "gwas__samc": [
+      "gwas",
+      "samc",
+      0.05,
+      "none"
+    ],
+    "hep__mcmc_is_no_oracle": [
+      "hep",
+      "mcmc_is_no_oracle",
+      0.05,
+      "0.4"
+    ],
+    "hep__samc": [
+      "hep",
+      "samc",
+      0.05,
+      "none"
+    ]
+  },
+  "outputs": [
+    {
+      "file": "config_mean_rrmse_paired_scenario_bca.pdf",
+      "sha256": "2db93c2d0e67ef8ba69f643a7463da931ed12a2531afdc47508f2279e4aa5ce2",
+      "bytes": 20608
+    },
+    {
+      "file": "diagnostic_checkpoint_metrics.csv",
+      "sha256": "fa2e7b53c17a502cd8fce64f79b29ee296eaa3502d6876bbd03fa1378ac85077",
+      "bytes": 9358
+    },
+    {
+      "file": "diagnostic_false_negative_rate_by_budget.pdf",
+      "sha256": "c769914d81dcaad4950b978fd979e3b03748b8a026d82c7c295dcf73fc314a85",
+      "bytes": 16999
+    },
+    {
+      "file": "diagnostic_mean_phat_over_p_by_budget.pdf",
+      "sha256": "809a2fa18fdd4ad45e14862b1792962700c005643fce2f85c4d0f5c0f4c13df0",
+      "bytes": 21417
+    },
+    {
+      "file": "diagnostic_rrmse_by_budget_bca.pdf",
+      "sha256": "aca3ff474b61d470bb920a8eeb50c95edd30f01bfbb11ce94fe30a3739a0e619",
+      "bytes": 20540
+    },
+    {
+      "file": "figure1_intro_tilt_geometry.pdf",
+      "sha256": "3834fea528103009de854ba7562fcf1b7d1b8c9bf77b5303f4ec1d492517e621",
+      "bytes": 237681
+    },
+    {
+      "file": "figure1_intro_tilt_geometry.png",
+      "sha256": "533bb1a55eda8a7e5a40df73d20bff0b084e10ac7b7990285806e832bb7eff88",
+      "bytes": 249544
+    },
+    {
+      "file": "figure1_intro_tilt_geometry_meta.json",
+      "sha256": "28cf1e88074bea9aea77626aaf83523dac29134d31ed48b9a1e7b395d881edea",
+      "bytes": 277
+    },
+    {
+      "file": "figure4_threshold_ratio_budget_5m.pdf",
+      "sha256": "616bd03c9bce2031e6d088990fc8e340cef67daa92ae242b7a9fe4ce8fb646a1",
+      "bytes": 23775
+    },
+    {
+      "file": "mcmcis_obm_relative_sd_distributions.pdf",
+      "sha256": "37cc88f4835642acad5ded36d21457f5320e1fa8bc51d40a5f5bf76e5215d9ed",
+      "bytes": 13631
+    },
+    {
+      "file": "mcmcis_rrmse_by_pvalue_half_bca.pdf",
+      "sha256": "40015fd88e15357273b4e2cf0d65ef6325bd72a179ba73d53e755c9cae1ac228",
+      "bytes": 17857
+    },
+    {
+      "file": "selected_configurations.json",
+      "sha256": "2917fa864b8ba8288c1ece3df9da87ad95b3adbd9a8ad8d0246265f610f57343",
+      "bytes": 320
+    },
+    {
+      "file": "table_main_results.csv",
+      "sha256": "4d9c1228d5018faa902ba1731ce1281d3382fe8d50aa328579c34c45ff43c2dd",
+      "bytes": 974
+    },
+    {
+      "file": "table_main_results.tex",
+      "sha256": "7fbdd01474790e9b62059f8f0ad34ad07b13ac21475c1aa4ff7c1f13894f833a",
+      "bytes": 598
+    },
+    {
+      "file": "table_pilot_production_allocation.csv",
+      "sha256": "633f66f6a3afce2dc9cd135e5126f69af4661c77f7cbc9ddbd34cdc01a0e5c6a",
+      "bytes": 260
+    },
+    {
+      "file": "table_scenario_bank.csv",
+      "sha256": "30661f9303e90129585d129c9736989d3a65bf603c072ce1ec00b2e849c07165",
+      "bytes": 243
+    },
+    {
+      "file": "top_mcmcis_configs_and_best_samc_rrmse_by_budget.pdf",
+      "sha256": "030403cb0e8d0eec6228186ae20a2abe81dc549b8e9bef5c1aa53e90291214b9",
+      "bytes": 25562
+    }
+  ]
+}

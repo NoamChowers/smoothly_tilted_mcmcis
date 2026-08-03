@@ -1,0 +1,26 @@
+{
+  "gwas__mcmc_is_no_oracle": [
+    "gwas",
+    "mcmc_is_no_oracle",
+    0.05,
+    "0.4"
+  ],
+  "gwas__samc": [
+    "gwas",
+    "samc",
+    0.05,
+    "none"
+  ],
+  "hep__mcmc_is_no_oracle": [
+    "hep",
+    "mcmc_is_no_oracle",
+    0.05,
+    "0.4"
+  ],
+  "hep__samc": [
+    "hep",
+    "samc",
+    0.05,
+    "none"
+  ]
+}

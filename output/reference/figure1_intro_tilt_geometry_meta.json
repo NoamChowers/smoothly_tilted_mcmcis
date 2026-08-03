@@ -1,0 +1,15 @@
+{
+  "p_k": 8.64260788666022e-05,
+  "target_event_mass": 0.5,
+  "r_step": 11569.581624366994,
+  "beta_smooth": 1.1743891431566928,
+  "window": 200000,
+  "seeds": {
+    "step": 2026080101,
+    "smooth": 2026080102
+  },
+  "up_crossings": {
+    "step": 3,
+    "smooth": 19306
+  }
+}

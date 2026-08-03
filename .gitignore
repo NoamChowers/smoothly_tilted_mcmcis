@@ -1,0 +1,13 @@
+.DS_Store
+.venv/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Disposable workflow products; checked reference outputs remain tracked.
+output/reproduced/
+output/obm_smoke/
+output/obm_full/
+output/simulation_smoke.jsonl
+output/full_simulation_records.jsonl

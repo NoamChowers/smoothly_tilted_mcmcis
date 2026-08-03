@@ -1,0 +1,70 @@
+{
+  "key": "gwas_additive_score_significant_v78_n140",
+  "description": "GWAS-like additive-score scenario with Binomial(2, maf=0.25) dosages, n=140, 70 cases, and p/p0 in the significant band.",
+  "statistic_name": "treated_sum",
+  "tail": "right",
+  "permutation_p_value_definition": "Right-tail probability from full permutation enumeration over all fixed-size labelings.",
+  "n": 140,
+  "n_treated": 70,
+  "n_control": 70,
+  "t_obs": 48.0,
+  "exact_method": "LinearStatisticDPSolver",
+  "exact_p_value": 2.2689530593625653e-08,
+  "tail_hits": 2128753762282767087668227834430832,
+  "n_permutations": 93820969697840041204785894580506297666600,
+  "notes": "Additive-dose score T=sum_i G_i y_i with a fixed case count. The exact right-tail probability was computed with LinearStatisticDPSolver after deterministic candidate search over genotype seeds and label downgrades.",
+  "extra": {
+    "n": 140,
+    "n_treated": 70,
+    "maf": 0.25,
+    "seed": 1725,
+    "downgrade_swaps": 8,
+    "observed_score": 48.0,
+    "extreme_score": 56.0,
+    "n_heterozygous": 32,
+    "n_homozygous_alt": 12,
+    "total_dosage_sum": 56,
+    "known_significance_threshold": 5e-08,
+    "p_over_p0": 0.45379061187251307,
+    "application_setting_key": "gwas_threshold_suite",
+    "application_setting_label": "GWAS-like additive score",
+    "threshold_band": "significant",
+    "wide_ratio_variant_index": 78,
+    "wide_ratio_range": [
+      0.01,
+      0.5
+    ],
+    "target_p_over_p0": 0.4528538929425672,
+    "target_log_absolute_error": 0.0020663430005236627,
+    "candidate_search_method": "exact_multivariate_hypergeometric"
+  },
+  "portfolio": {
+    "family": "gwas_additive_score",
+    "statistic_family": "linear_statistic",
+    "data_family": "discrete_score",
+    "rarity_band": "extreme",
+    "expected_difficulty": "moderate",
+    "sample_size_band": "large",
+    "has_ties": true,
+    "is_discrete": true,
+    "groups": [
+      "exploratory_exact",
+      "threshold_suite",
+      "gwas_threshold_suite",
+      "gwas_threshold_suite_significant",
+      "wide_threshold_variety",
+      "gwas_threshold_suite_significant_variety"
+    ],
+    "known_significance_threshold": 5e-08,
+    "p_over_p0": 0.45379061187251307,
+    "application_setting_key": "gwas_threshold_suite",
+    "application_setting_label": "GWAS-like additive score",
+    "threshold_band": "significant",
+    "wide_ratio_variant_index": 78,
+    "wide_ratio_range": [
+      0.01,
+      0.5
+    ],
+    "target_p_over_p0": 0.4528538929425672
+  }
+}

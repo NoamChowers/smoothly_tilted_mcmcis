@@ -1,0 +1,9 @@
+name: jasa-mcmcis-reproducibility
+channels:
+  - conda-forge
+dependencies:
+  - python=3.13.0
+  - pip
+  - pip:
+      - -r requirements-reproducibility.txt
+      - -e .

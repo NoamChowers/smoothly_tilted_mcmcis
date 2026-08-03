@@ -119,7 +119,7 @@ def _run_chain(
     init_state: np.ndarray | None,
     tilt_mode: TiltMode,
     n_swap_pairs: int,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, int, int, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, int, int, np.ndarray]:
     y = _initial_state(problem, rng, init, init_state)
     t_cur = problem.compute_stat(y)
     q_cur = _shortfall(problem, t_cur, sigma_t, tilt_mode)
@@ -127,6 +127,7 @@ def _run_chain(
     t_samples: list[float] = []
     q_samples: list[float] = []
     tail: list[int] = []
+    step_accepted_flags: list[int] = []
     accepted = 0
     proposals = 0
 
@@ -137,7 +138,8 @@ def _run_chain(
 
         proposals += 1
         log_alpha = -beta * (q_prop - q_cur)
-        if log_alpha >= 0.0 or np.log(rng.random()) < log_alpha:
+        step_accepted = log_alpha >= 0.0 or np.log(rng.random()) < log_alpha
+        if step_accepted:
             y = y_prop
             t_cur = t_prop
             q_cur = q_prop
@@ -147,11 +149,13 @@ def _run_chain(
             t_samples.append(float(t_cur))
             q_samples.append(float(q_cur))
             tail.append(int(problem.is_in_tail(t_cur)))
+            step_accepted_flags.append(int(step_accepted))
 
     return (
         np.asarray(t_samples, dtype=float),
         np.asarray(q_samples, dtype=float),
         np.asarray(tail, dtype=np.int8),
+        np.asarray(step_accepted_flags, dtype=np.int8),
         int(accepted),
         int(proposals),
         y.copy(),
@@ -265,9 +269,10 @@ def run_mcmc_is(
     total_proposals = 0
 
     for chain_idx, child in enumerate(child_seqs):
-        chain_seeds.append(int(child.generate_state(1)[0]))
-        rng = np.random.default_rng(child)
-        t_chain, q_chain, tail_chain, accepted, proposals, y_final = _run_chain(
+        chain_seed = int(child.generate_state(1, dtype=np.uint64)[0])
+        chain_seeds.append(chain_seed)
+        rng = np.random.default_rng(chain_seed)
+        t_chain, q_chain, tail_chain, _step_accepted, accepted, proposals, y_final = _run_chain(
             problem,
             rng,
             beta=float(beta),
@@ -345,6 +350,173 @@ def run_mcmc_is(
         final_labels=tuple(final_labels),
         chain_diagnostics=tuple(diagnostics),
     )
+
+
+def _checkpoint_burn_in(n_steps: int, burn_in_fraction: float) -> int:
+    return min(int(burn_in_fraction * n_steps), max(n_steps - 1, 0))
+
+
+def run_mcmc_is_checkpoints(
+    problem: PermutationTestProblem,
+    *,
+    beta: float,
+    sigma_t: float = 1.0,
+    checkpoint_steps: list[int] | tuple[int, ...],
+    burn_in_fraction: float = 0.20,
+    thin: int = 1,
+    n_chains: int = 1,
+    seed: int | None = None,
+    init: str | np.ndarray | list[np.ndarray] | tuple[np.ndarray, ...] = "random",
+    tilt_mode: TiltMode = "smooth_hinge",
+    proposal_size: float | int = 0.075,
+    estimate_variance: bool = True,
+    obm_batch_size: int | None = None,
+) -> list[MCMCISResult]:
+    """
+    Run one MCMC-IS chain per replicate and report the estimate at several
+    cumulative step budgets.
+
+    This reproduces the article's budget-convergence curves: each chain runs
+    once to ``max(checkpoint_steps)``, and every checkpoint reads off a prefix
+    of that same trajectory, discarding ``burn_in_fraction * checkpoint``
+    steps before thinning. Because each checkpoint's estimate depends only on
+    that prefix, a single call with ``checkpoint_steps=[n_steps]`` matches
+    ``run_mcmc_is(problem, ..., n_steps=n_steps, burn_in=_checkpoint_burn_in(
+    n_steps, burn_in_fraction), thin=thin)`` exactly, for the same seed.
+    """
+    if not checkpoint_steps:
+        raise ValueError("checkpoint_steps must be non-empty.")
+    checkpoints = sorted(int(cp) for cp in checkpoint_steps)
+    if checkpoints[0] <= 0:
+        raise ValueError("checkpoint_steps must contain only positive step counts.")
+    if len(set(checkpoints)) != len(checkpoints):
+        raise ValueError("checkpoint_steps must not contain duplicates.")
+    if not (0.0 <= burn_in_fraction < 1.0):
+        raise ValueError("burn_in_fraction must satisfy 0 <= burn_in_fraction < 1.")
+    if thin <= 0:
+        raise ValueError("thin must be positive.")
+    if n_chains <= 0:
+        raise ValueError("n_chains must be positive.")
+    if beta < 0.0 or not np.isfinite(beta):
+        raise ValueError("beta must be finite and non-negative.")
+    if sigma_t <= 0.0 or not np.isfinite(sigma_t):
+        raise ValueError("sigma_t must be finite and positive.")
+    if tilt_mode not in {"smooth_hinge", "step"}:
+        raise ValueError("tilt_mode must be 'smooth_hinge' or 'step'.")
+
+    max_steps = checkpoints[-1]
+    n_swap_pairs = resolve_n_swap_pairs(
+        problem.n_treated,
+        problem.n_control,
+        proposal_size=proposal_size,
+    )
+    init_mode, init_states = _resolve_init_states(problem, int(n_chains), init)
+
+    seed_seq = np.random.SeedSequence(seed)
+    child_seqs = seed_seq.spawn(int(n_chains))
+    chain_seeds: list[int] = []
+    t_full_by_chain: list[np.ndarray] = []
+    q_full_by_chain: list[np.ndarray] = []
+    tail_full_by_chain: list[np.ndarray] = []
+    accepted_full_by_chain: list[np.ndarray] = []
+    final_labels: list[np.ndarray] = []
+
+    for chain_idx, child in enumerate(child_seqs):
+        chain_seed = int(child.generate_state(1, dtype=np.uint64)[0])
+        chain_seeds.append(chain_seed)
+        rng = np.random.default_rng(chain_seed)
+        t_full, q_full, tail_full, accepted_full, _accepted, _proposals, y_final = _run_chain(
+            problem,
+            rng,
+            beta=float(beta),
+            sigma_t=float(sigma_t),
+            n_steps=int(max_steps),
+            burn_in=0,
+            thin=1,
+            init=init_mode,
+            init_state=init_states[chain_idx],
+            tilt_mode=tilt_mode,
+            n_swap_pairs=n_swap_pairs,
+        )
+        t_full_by_chain.append(t_full)
+        q_full_by_chain.append(q_full)
+        tail_full_by_chain.append(tail_full)
+        accepted_full_by_chain.append(accepted_full)
+        final_labels.append(y_final)
+
+    results: list[MCMCISResult] = []
+    for cp in checkpoints:
+        burn_in = _checkpoint_burn_in(cp, burn_in_fraction)
+        t_chunks = [t_full[burn_in:cp:thin] for t_full in t_full_by_chain]
+        q_chunks = [q_full[burn_in:cp:thin] for q_full in q_full_by_chain]
+        tail_chunks = [tail_full[burn_in:cp:thin] for tail_full in tail_full_by_chain]
+        chain_lengths = [int(chunk.size) for chunk in q_chunks]
+
+        chain_accepted = [int(np.sum(accepted_full[:cp])) for accepted_full in accepted_full_by_chain]
+        acceptance_rates = [float(n_accepted / cp) for n_accepted in chain_accepted]
+        total_accepted = int(sum(chain_accepted))
+        total_proposals = int(cp * n_chains)
+
+        t_samples = np.concatenate(t_chunks)
+        q_samples = np.concatenate(q_chunks)
+        indicators = np.concatenate(tail_chunks).astype(np.int8)
+        if t_samples.size == 0:
+            raise RuntimeError("No samples were retained. Check checkpoint_steps, burn_in_fraction, and thin.")
+
+        log_weights = float(beta) * q_samples
+        shifted_weights = np.exp(log_weights - float(np.max(log_weights)))
+        estimate = float(np.dot(shifted_weights, indicators) / np.sum(shifted_weights))
+        ess = effective_sample_size(shifted_weights)
+        variance = None
+        mcse = None
+        obm_sizes: tuple[int, ...] = tuple()
+        if estimate_variance:
+            variance, mcse, obm_sizes = _snis_obm_variance(
+                shifted_weights,
+                indicators,
+                estimate,
+                chain_lengths,
+                obm_batch_size,
+            )
+
+        diagnostics = tuple(
+            ChainDiagnostics(
+                acceptance_rate=acceptance_rates[i],
+                n_proposals=int(cp),
+                n_accepted=chain_accepted[i],
+                mean_stat=float(np.mean(t_chunks[i])) if t_chunks[i].size else float("nan"),
+                sd_stat=float(np.std(t_chunks[i])) if t_chunks[i].size else float("nan"),
+            )
+            for i in range(int(n_chains))
+        )
+
+        results.append(
+            MCMCISResult(
+                estimate=estimate,
+                ess=float(ess),
+                beta=float(beta),
+                sigma_t=float(sigma_t),
+                tilt_mode=str(tilt_mode),
+                proposal_swaps=int(n_swap_pairs),
+                n_weighted_samples=int(t_samples.size),
+                tail_hits_weighted_sample=int(np.sum(indicators)),
+                raw_tail_rate=float(np.mean(indicators)),
+                acceptance_rate=float(total_accepted / total_proposals),
+                chain_acceptance_rates=tuple(acceptance_rates),
+                mcse_obm=mcse,
+                variance_obm=variance,
+                obm_batch_sizes=obm_sizes,
+                weight_summary=summarize_weights(shifted_weights),
+                seed=seed,
+                chain_seeds=tuple(chain_seeds),
+                t_samples=t_samples,
+                log_weights=log_weights,
+                tail_indicators=indicators,
+                final_labels=tuple(final_labels),
+                chain_diagnostics=diagnostics,
+            )
+        )
+    return results
 
 
 def run_hard_step_mcmc_is(

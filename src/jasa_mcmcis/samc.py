@@ -147,6 +147,61 @@ def _correction_ratio(corrected: float, uncorrected: float) -> float:
     return float("nan")
 
 
+def _resolve_samc_bins(
+    problem: PermutationTestProblem,
+    *,
+    bin_edges: np.ndarray | None,
+    n_bins: int,
+    lambda_min: float | None,
+    lambda_min_samples: int,
+    target_visitation: np.ndarray | None,
+    pilot_rng: np.random.Generator,
+) -> tuple[np.ndarray, np.ndarray, int, int]:
+    """Resolve bin edges and the target visitation distribution for SAMC."""
+    lambda_min_evaluations = 0
+    if bin_edges is None:
+        if lambda_min is None:
+            lambda_min = estimate_lambda_min(problem, int(lambda_min_samples), pilot_rng)
+            lambda_min_evaluations = int(lambda_min_samples)
+        bin_edges = _right_tail_bin_edges(problem.t_obs, float(lambda_min), int(n_bins))
+    else:
+        bin_edges = np.asarray(bin_edges, dtype=float)
+    if not _is_right_tail_partition(bin_edges, problem.t_obs):
+        raise ValueError("bin_edges must end with [t_obs, +inf) for a right-tail SAMC run.")
+
+    k = int(bin_edges.size - 1)
+    tail_bin_index = k - 1
+    if target_visitation is None:
+        target = np.full(k, 1.0 / k, dtype=float)
+    else:
+        target = np.asarray(target_visitation, dtype=float)
+        if target.shape != (k,):
+            raise ValueError("target_visitation must have one entry per bin.")
+        if np.any(target <= 0.0):
+            raise ValueError("target_visitation must be strictly positive.")
+        target = target / np.sum(target)
+    return bin_edges, target, tail_bin_index, lambda_min_evaluations
+
+
+def _samc_seed_rngs(
+    seed: int | None,
+    lambda_min_seed: int | None,
+) -> tuple[np.random.Generator, np.random.Generator]:
+    """
+    Resolve the lambda_0-pilot and chain generators.
+
+    By default, both streams are spawned from one ``seed`` so they are
+    independent but still reproducible from a single value. Pass
+    ``lambda_min_seed`` to seed the pilot from its own, unrelated value instead
+    (matching a scheme where the pilot and chain seeds are chosen
+    independently rather than derived from a shared parent).
+    """
+    if lambda_min_seed is None:
+        pilot_seq, chain_seq = np.random.SeedSequence(seed).spawn(2)
+        return np.random.default_rng(pilot_seq), np.random.default_rng(chain_seq)
+    return np.random.default_rng(lambda_min_seed), np.random.default_rng(seed)
+
+
 def run_samc(
     problem: PermutationTestProblem,
     *,
@@ -158,6 +213,7 @@ def run_samc(
     target_visitation: np.ndarray | None = None,
     t0: float = 1_000.0,
     seed: int | None = None,
+    lambda_min_seed: int | None = None,
     init: str = "random",
     trace_every: int = 0,
     proposal_size: float | int = 0.075,
@@ -188,37 +244,19 @@ def run_samc(
     if convergence_tolerance <= 0.0:
         raise ValueError("convergence_tolerance must be positive.")
 
-    # Keep the lambda_0 pilot on its own stream so the chain is unaffected by it.
-    pilot_seq, chain_seq = np.random.SeedSequence(seed).spawn(2)
-    rng = np.random.default_rng(chain_seq)
+    pilot_rng, rng = _samc_seed_rngs(seed, lambda_min_seed)
     n_swap_pairs = resolve_n_swap_pairs(problem.n_treated, problem.n_control, proposal_size)
 
-    lambda_min_evaluations = 0
-    if bin_edges is None:
-        if lambda_min is None:
-            lambda_min = estimate_lambda_min(
-                problem,
-                int(lambda_min_samples),
-                np.random.default_rng(pilot_seq),
-            )
-            lambda_min_evaluations = int(lambda_min_samples)
-        bin_edges = _right_tail_bin_edges(problem.t_obs, float(lambda_min), int(n_bins))
-    else:
-        bin_edges = np.asarray(bin_edges, dtype=float)
-    if not _is_right_tail_partition(bin_edges, problem.t_obs):
-        raise ValueError("bin_edges must end with [t_obs, +inf) for a right-tail SAMC run.")
-
+    bin_edges, target, tail_bin_index, lambda_min_evaluations = _resolve_samc_bins(
+        problem,
+        bin_edges=bin_edges,
+        n_bins=n_bins,
+        lambda_min=lambda_min,
+        lambda_min_samples=lambda_min_samples,
+        target_visitation=target_visitation,
+        pilot_rng=pilot_rng,
+    )
     k = int(bin_edges.size - 1)
-    tail_bin_index = k - 1
-    if target_visitation is None:
-        target = np.full(k, 1.0 / k, dtype=float)
-    else:
-        target = np.asarray(target_visitation, dtype=float)
-        if target.shape != (k,):
-            raise ValueError("target_visitation must have one entry per bin.")
-        if np.any(target <= 0.0):
-            raise ValueError("target_visitation must be strictly positive.")
-        target = target / np.sum(target)
 
     if init == "observed":
         y = problem.y_obs.copy()
@@ -289,3 +327,141 @@ def run_samc(
         proposal_swaps=int(n_swap_pairs),
         seed=seed,
     )
+
+
+def run_samc_checkpoints(
+    problem: PermutationTestProblem,
+    *,
+    checkpoint_steps: list[int] | tuple[int, ...],
+    bin_edges: np.ndarray | None = None,
+    n_bins: int = 101,
+    lambda_min: float | None = None,
+    lambda_min_samples: int = 10_000,
+    target_visitation: np.ndarray | None = None,
+    t0: float = 1_000.0,
+    seed: int | None = None,
+    lambda_min_seed: int | None = None,
+    init: str = "random",
+    proposal_size: float | int = 0.075,
+    convergence_tolerance: float = 20.0,
+) -> list[SAMCResult]:
+    """
+    Run one SAMC chain and report the estimate at several cumulative step counts.
+
+    This reproduces the article's budget-convergence curves. SAMC has no
+    discarded burn-in, so each checkpoint's estimate is read directly off a
+    single chain at the requested step count, using theta and the visitation
+    counts accumulated up to that point. A single call with
+    ``checkpoint_steps=[n_steps]`` matches ``run_samc(problem, n_steps=n_steps,
+    ...)`` exactly, for the same seed.
+    """
+    if problem.tail != "right":
+        raise NotImplementedError("SAMC currently implements the right-tail partition.")
+    if not checkpoint_steps:
+        raise ValueError("checkpoint_steps must be non-empty.")
+    checkpoints = sorted(int(cp) for cp in checkpoint_steps)
+    if checkpoints[0] <= 0:
+        raise ValueError("checkpoint_steps must contain only positive step counts.")
+    if len(set(checkpoints)) != len(checkpoints):
+        raise ValueError("checkpoint_steps must not contain duplicates.")
+    if n_bins < 2:
+        raise ValueError("n_bins must be at least 2.")
+    if t0 <= 0.0 or not np.isfinite(t0):
+        raise ValueError("t0 must be finite and positive.")
+    if convergence_tolerance <= 0.0:
+        raise ValueError("convergence_tolerance must be positive.")
+
+    pilot_rng, rng = _samc_seed_rngs(seed, lambda_min_seed)
+    n_swap_pairs = resolve_n_swap_pairs(problem.n_treated, problem.n_control, proposal_size)
+
+    bin_edges, target, tail_bin_index, lambda_min_evaluations = _resolve_samc_bins(
+        problem,
+        bin_edges=bin_edges,
+        n_bins=n_bins,
+        lambda_min=lambda_min,
+        lambda_min_samples=lambda_min_samples,
+        target_visitation=target_visitation,
+        pilot_rng=pilot_rng,
+    )
+    k = int(bin_edges.size - 1)
+
+    if init == "observed":
+        y = problem.y_obs.copy()
+    elif init == "random":
+        y = problem.sample_uniform_labels(rng)
+    else:
+        raise ValueError("init must be 'observed' or 'random'.")
+
+    max_steps = checkpoints[-1]
+    t_cur = problem.compute_stat(y)
+    b_cur = _bin_index(t_cur, bin_edges)
+    theta = np.zeros(k, dtype=float)
+    bin_trace = np.empty(max_steps, dtype=np.int64)
+    accepted = 0
+    checkpoint_set = set(checkpoints)
+    theta_at_checkpoint: dict[int, np.ndarray] = {}
+    accepted_at_checkpoint: dict[int, int] = {}
+
+    for step in range(1, max_steps + 1):
+        y_prop = propose_swaps(y, rng, n_swap_pairs)
+        t_prop = problem.compute_stat(y_prop, validate=False)
+        b_prop = _bin_index(t_prop, bin_edges)
+
+        log_alpha = theta[b_cur] - theta[b_prop]
+        if log_alpha >= 0.0 or np.log(rng.random()) < log_alpha:
+            y = y_prop
+            t_cur = t_prop
+            b_cur = b_prop
+            accepted += 1
+        bin_trace[step - 1] = b_cur
+
+        gamma = _default_stepsize(step, t0)
+        theta -= gamma * target
+        theta[b_cur] += gamma
+        theta -= np.mean(theta)
+
+        if step in checkpoint_set:
+            theta_at_checkpoint[step] = theta.copy()
+            accepted_at_checkpoint[step] = accepted
+
+    results: list[SAMCResult] = []
+    for cp in checkpoints:
+        visit_counts = np.bincount(bin_trace[:cp], minlength=k).astype(np.int64)
+        freq = visitation_frequency(visit_counts)
+        rel_error = _relative_sampling_frequency_error(visit_counts)
+        max_abs_rel_error = float(np.max(np.abs(rel_error)))
+        theta_cp = theta_at_checkpoint[cp]
+        estimate, pi0, empty_idx = _paper_pvalue_estimate(
+            theta=theta_cp,
+            target=target,
+            visit_counts=visit_counts,
+            tail_bin_index=tail_bin_index,
+        )
+        no_correction = _pvalue_no_empty_bin_correction(theta_cp, target, tail_bin_index)
+
+        results.append(
+            SAMCResult(
+                estimate=float(estimate),
+                estimate_no_empty_bin_correction=float(no_correction),
+                empty_bin_correction_ratio=_correction_ratio(float(estimate), float(no_correction)),
+                acceptance_rate=float(accepted_at_checkpoint[cp] / cp),
+                n_steps=int(cp),
+                lambda_min=float(bin_edges[0]),
+                lambda_min_evaluations=int(lambda_min_evaluations),
+                bin_edges=bin_edges.copy(),
+                visit_counts=visit_counts,
+                visitation_frequency=freq,
+                target_visitation=target,
+                theta_final=theta_cp.copy(),
+                theta_trace=np.empty((0, k), dtype=float),
+                tail_bin_index=int(tail_bin_index),
+                pi0_adjustment=float(pi0),
+                empty_bin_indices=empty_idx,
+                relative_frequency_error=rel_error,
+                max_abs_relative_frequency_error=max_abs_rel_error,
+                convergence_reached=bool(max_abs_rel_error < convergence_tolerance),
+                proposal_swaps=int(n_swap_pairs),
+                seed=seed,
+            )
+        )
+    return results

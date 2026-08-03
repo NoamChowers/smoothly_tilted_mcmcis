@@ -1,0 +1,64 @@
+{
+  "CATALOG_PATH": "src/jasa_mcmcis/data/scenarios/catalog.json",
+  "THRESHOLD_BANDS": [
+    "near"
+  ],
+  "FAMILIES": [
+    "gwas",
+    "hep"
+  ],
+  "METHODS": [
+    "samc",
+    "mcmc_is"
+  ],
+  "SCENARIOS_PER_FAMILY": 80,
+  "MAX_BUDGET": 5000000,
+  "CHECKPOINT_STEP": 250000,
+  "CHECKPOINTS": [
+    250000,
+    500000,
+    750000,
+    1000000,
+    1250000,
+    1500000,
+    1750000,
+    2000000,
+    2250000,
+    2500000,
+    2750000,
+    3000000,
+    3250000,
+    3500000,
+    3750000,
+    4000000,
+    4250000,
+    4500000,
+    4750000,
+    5000000
+  ],
+  "MCMCIS_SWAP_FRACTIONS": [
+    0.025,
+    0.05,
+    0.1
+  ],
+  "SAMC_SWAP_FRACTIONS": [
+    0.05,
+    0.1
+  ],
+  "GAMMAS": [
+    0.25,
+    0.3333333333333333,
+    0.4,
+    0.5
+  ],
+  "BETA_INIT_PILOT_SAMPLES": 100000,
+  "N_JOBS": 6,
+  "BASE_SEED": 91337,
+  "MCMC_CHAINS": 1,
+  "MCMC_ESTIMATE_VARIANCE": false,
+  "SAMC_N_BINS": 101,
+  "SAMC_LAMBDA_MIN_PILOT": 10000,
+  "RESUME_BLOCKS": true,
+  "SKIP_IF_PRESENT": true,
+  "REFERENCE_RESULTS": "data/reference/main_grid/all_records.jsonl.gz"
+}

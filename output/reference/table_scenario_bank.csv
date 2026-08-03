@@ -1,0 +1,3 @@
+family,n,n_treated,threshold_p0,scenarios,exact_p_min,exact_p_max
+GWAS-like additive dosage,140,70,5e-08,80,3.757894874641817e-08,4.9457522506233647e-08
+HEP-like Poisson counts,200,100,3e-07,80,2.2687861152073258e-07,2.9489830070382916e-07

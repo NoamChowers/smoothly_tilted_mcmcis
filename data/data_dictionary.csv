@@ -1,0 +1,23 @@
+location,unit_or_field,type,description
+src/jasa_mcmcis/data/scenarios/*/X.npy,X,float64 vector,Observed covariate or score vector used by the permutation statistic
+src/jasa_mcmcis/data/scenarios/*/y_obs.npy,y_obs,int8 vector,Observed fixed-size binary group labels
+data/wide_ratio/*/*/X.npy,X,float64 vector,Observed GWAS-like dosage vector
+data/wide_ratio/*/*/y_obs.npy,y_obs,int8 vector,Observed case-control labels
+"*/metadata.json",key,string,Unique scenario identifier
+"*/metadata.json",exact_p_value,float,Exact right-tail permutation p-value
+"*/metadata.json",n,integer,Number of observations
+"*/metadata.json",n_treated,integer,Fixed number of labels equal to one
+"*/metadata.json",extra.seed,integer,Seed used to generate X
+"*/metadata.json",extra.downgrade_swaps,integer,Number of label swaps away from the most extreme labeling
+"*/metadata.json",extra.known_significance_threshold,float,Reference threshold p0
+"*/metadata.json",extra.p_over_p0,float,Exact p-value divided by p0
+data/reference/*/*.jsonl.gz,scenario,string,Scenario key
+data/reference/*/*.jsonl.gz,method,string,Estimator identifier
+data/reference/*/*.jsonl.gz,checkpoint,integer,Cumulative statistic-evaluation budget
+data/reference/*/*.jsonl.gz,estimate,float,Estimated permutation p-value
+data/reference/*/*.jsonl.gz,exact_p,float,Exact permutation p-value
+data/reference/*/*.jsonl.gz,swap_fraction,float,Proposal swap fraction
+data/reference/*/*.jsonl.gz,gamma,float or null,Tilt exponent for MCMC-IS; null for SAMC
+data/reference/*/*.jsonl.gz,seed,integer,Base pseudo-random seed for the simulation block
+data/reference/obm/*.csv,empirical_relative_sd,float,Across-chain standard deviation divided by exact p
+data/reference/obm/*.csv,aggregate_obm_relative_sd,float,Root mean OBM variance divided by exact p
