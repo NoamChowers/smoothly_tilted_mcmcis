@@ -17,20 +17,6 @@ Data generation and large experiment orchestration are intentionally not
 included. The bundled data are the observed arrays, labels, and metadata needed
 to reproduce method calls on the article scenarios.
 
-## Install
-
-From this directory:
-
-```bash
-python -m pip install -e .
-```
-
-For tests:
-
-```bash
-python -m pip install -e ".[dev]"
-python -m pytest
-```
 
 ## Load A Scenario
 
