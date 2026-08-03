@@ -1,6 +1,6 @@
 # JASA MCMCIS Supplement
 
-This is a compact, article-facing implementation of rare permutation-test
+This is a compact implementation of rare permutation-test
 p-value estimation. It contains:
 
 - MCMC importance sampling (MCMC-IS) for fixed-size binary-label permutation
