@@ -1,4 +1,4 @@
-# JASA MCMCIS Supplement
+# Smoothly Tilted MCMC Importance Sampling for Small Tail Probabilities - Code Supplement
 
 This is a compact implementation of rare permutation-test
 p-value estimation. It contains:
